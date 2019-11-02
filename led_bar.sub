@@ -1,0 +1,140 @@
+;*******************************************************************************
+; EE465: Microcontroller Applications
+; Montana State University, Bozeman
+; by Aaron Jense
+;
+; Compares iic_msg_rx for keypress of A,B,C,D
+; If match found, display pattern by setting PTBD for each index in PATTERN_
+; 1 sec delay between each index tracked by pcount and _VTPMOVF interrupt
+;*******************************************************************************
+                    #Uses     qg8.inc
+                    #Uses     iic.sub
+;*******************************************************************************
+; Constants
+;*******************************************************************************
+
+LENGTH_A            equ       1
+LENGTH_B            equ       9
+LENGTH_C            equ       7
+LENGTH_D            equ       11
+
+;*******************************************************************************
+                    #RAM
+;*******************************************************************************
+
+pcount              rmb       1
+
+;*******************************************************************************
+                    #ROM
+;*******************************************************************************
+
+PATTERN_A           fcb       %10101010
+
+PATTERN_B           fcb       %01111111
+                    fcb       %10111111
+                    fcb       %11011111
+                    fcb       %11101111
+                    fcb       %11110111
+                    fcb       %11111011
+                    fcb       %11111101
+                    fcb       %11111110
+
+PATTERN_C           fcb       %00011000
+                    fcb       %00100100
+                    fcb       %01000010
+                    fcb       %10000001
+                    fcb       %01000010
+                    fcb       %00100100
+                    fcb       %00011000
+
+PATTERN_D           fcb       %00111100
+                    fcb       %00011110
+                    fcb       %00001111
+                    fcb       %00000111
+                    fcb       %00000011
+                    fcb       %00000001
+                    fcb       %00000011
+                    fcb       %00000111
+                    fcb       %00001111
+                    fcb       %00011110
+                    fcb       %00111100
+
+FLASH_LED_ARRAY     proc
+                    clrhx                         ; inits
+                    clra
+                    sta       pcount
+                    sta       PTBD
+                    lda       iic_msg_rx          ; compare
+                    cbeqa     #'A',LED_A
+                    cbeqa     #'B',LED_B
+                    cbeqa     #'C',LED_C
+                    cbeqa     #'D',LED_D
+                    rts
+
+;*******************************************************************************
+
+LED_A               proc
+                    lda       PATTERN_A
+                    sta       PTBD
+                    lda       pcount
+                    cmpa      #LENGTH_A
+                    bne       LED_A
+                    clra
+                    sta       iic_msg_rx
+                    sta       PTBD
+                    rts
+
+;*******************************************************************************
+
+LED_B               proc
+                    ldx       pcount
+                    lda       PATTERN_B,X
+                    sta       PTBD
+                    lda       pcount
+                    cmpa      #LENGTH_B
+                    bne       LED_B
+                    clra
+                    sta       iic_msg_rx
+                    sta       PTBD
+                    rts
+
+;*******************************************************************************
+
+LED_C               proc
+                    ldx       pcount
+                    lda       PATTERN_C,X
+                    sta       PTBD
+                    lda       pcount
+                    cmpa      #LENGTH_C
+                    bne       LED_C
+                    clra
+                    sta       iic_msg_rx
+                    sta       PTBD
+                    rts
+
+;*******************************************************************************
+
+LED_D               proc
+                    ldx       pcount
+                    lda       PATTERN_D,X
+                    sta       PTBD
+                    lda       pcount
+                    cmpa      #LENGTH_D
+                    bne       LED_D
+                    clra
+                    sta       iic_msg_rx
+                    sta       PTBD
+                    rts
+
+;*******************************************************************************
+
+_VTPMOVF            proc
+                    bclr      7,TPMSC             ; must clear TOF flag
+          #ifz ]pcount
+                    inc       pcount
+          #else
+                    lda       pcount
+                    inca
+                    sta       pcount
+          #endif
+                    rti

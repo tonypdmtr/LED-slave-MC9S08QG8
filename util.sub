@@ -1,0 +1,28 @@
+;*******************************************************************************
+; EE465: Microcontroll Applications
+; Montana State University, Bozeman
+; by Aaron Jense
+;
+; Simple utility subroutines
+;*******************************************************************************
+                    #Uses     qg8.inc
+;*******************************************************************************
+                    #ROM
+;*******************************************************************************
+
+DELAY               proc
+                    bsr:3     Debounce_50ms
+;                   bra       Debounce_50ms
+
+;*******************************************************************************
+                              #Cycles
+Debounce_50ms       proc
+                    clrhx
+                              #Cycles
+Loop@@              aix       #1
+                    cphx      #DELAY@@
+                    bne       Loop@@
+                              #temp :cycles
+                    rts
+
+DELAY@@             equ       50*BUS_KHZ-:cycles-:ocycles/:temp

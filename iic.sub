@@ -1,0 +1,76 @@
+;*******************************************************************************
+; EE465: Microcontroller Applications
+; Montana State University, Bozeman
+; by Aaron Jense
+;
+; I2C using IICC module for receiving keypress from master HCS08.
+;*******************************************************************************
+                    #Uses     qg8.inc
+;*******************************************************************************
+; Constants
+;*******************************************************************************
+
+IICC_IICEN          equ       IICEN.
+IICC_IICIE          equ       IICIE.
+IICS_IICIF          equ       IICIF.
+IICS_ARBL           equ       ARBL.
+IICS_IAAS           equ       IAAS.
+IICS_SRW            equ       SRW.
+IICC_TX             equ       TX.
+IICS_RXAK           equ       RXAK.
+
+BAUDRATE            equ       %10111111           ; (BUSCLK / M*ICR)
+IIC_SLAVE_ADDR      fcb       'B'
+
+;*******************************************************************************
+                    #RAM
+;*******************************************************************************
+
+iic_msg_tx          rmb       1
+iic_msg_rx          rmb       1
+tx_cnt              rmb       1
+rx_cnt              rmb       1
+
+;*******************************************************************************
+                    #ROM
+;*******************************************************************************
+
+Setup_IIC_SLAVE     proc
+                    bset      IICC_IICEN,IICC     ; enable IIC interface
+                    mov       #BAUDRATE,IICF      ; write IICF, sets IIC baud rate
+                    lda       IIC_SLAVE_ADDR
+                    sta       IICA
+                    bclr      IICC_TX,IICC        ; receive mode
+                    bset      IICC_IICIE,IICC     ; interrupt enabled
+                    rts
+
+;*******************************************************************************
+
+_VICC               proc
+                    bset      IICS_IICIF,IICS     ; clear the interrupt
+                                                  ; Slave mode? ; yes
+                    brset     IICS_ARBL,IICS,LostArb@@ ; Arbitration Lost?
+                                                  ; No, addressed as slave?
+                    brset     IICS_IAAS,IICS,Go@@ ; yes, address transfer
+                    bra       GetMsg@@            ; receive data byte
+          ;--------------------------------------
+          ; Slave transmit, master reading from slave?
+          ;--------------------------------------
+Go@@                brset     IICS_SRW,IICS,Cont@@; no, slave receiving
+
+Rx@@                bclr      IICC_TX,IICC        ; Set RX mode
+                    lda       IICD                ; Dummy read to initiate receiving
+                    rti
+
+GetMsg@@            bclr      IICC_TX,IICC        ; Set RX mode
+                    lda       IICD
+                    sta       iic_msg_rx
+                    rti
+
+LostArb@@           bset      IICS_ARBL,IICS      ; Clear arbitration flag
+                    brset     IICS_IAAS,IICS,Go@@ ; Addressed as slave?
+                    rti
+
+Cont@@              brset     IICS_RXAK,IICS,Rx@@ ; ACK from Receiver? no, switch to RX
+                    bset      IICC_TX,IICC        ; yes, set TX mode and write data to IICD
+                    rti
