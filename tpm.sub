@@ -12,6 +12,6 @@ Setup_TPM           proc
                     mov       #%01001111,TPMSC    ; Bit 6 is TOIE and allows for interrupt when TOF is 1
                                                   ; bit 4:3 is CLKSB:CLKSA set to 0:1 for BUSCLK
                                                   ; Bit 2:1:0 is PS2:PS1:PS0 set to 1:1:1 for prescaler 128
-                    ldhx      #BUS_HZ/128         ; 1 sec delay when TPMSC prescaler is 111
+                    ldhx      #BUS_HZ/128-1       ; 1 sec delay when TPMSC prescaler is 111
                     sthx      TPMMOD              ; Ftof = Fsource / (Prescaler * (TPMMOD+1))
                     rts
