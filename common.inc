@@ -587,7 +587,8 @@ Rep                 macro     Times,Instruction1[,Instruction2]*
           #if ::~1,~ <= 1
                     psha                          ;;protect user's A
                     lda       ~1~                 ;;A = counter value
-Loop$$$             psha                          ;;save current counter
+Loop$$$
+                    psha                          ;;save current counter
                     lda       2,asp               ;;A = user's A
                     msuspend                      ;;run user code
                     sta       2,asp               ;;save user's A for later
@@ -597,7 +598,8 @@ Loop$$$             psha                          ;;save current counter
           #else if ::~1,~ = 2
                     pshhx                         ;;protect user's A
                     ldhx      ~1~                 ;;HX = counter value
-Loop$$$             pshhx                         ;;save current counter
+Loop$$$
+                    pshhx                         ;;save current counter
                     ldhx      3,asp               ;;HX = user's HX
                     msuspend                      ;;run user code
                     sthx      3,asp               ;;save user's HX for later
@@ -1381,7 +1383,8 @@ PullV               macro     Variable[ SizeOf(Variable)]
 _ClrVar_            macro     Variable
                     clrh
                     ldx       #::~1~
-Loop$$$             clr       ~1~-1,ax
+Loop$$$
+                    clr       ~1~-1,ax
                     dbnzx     Loop$$$
                     endm
 
@@ -1432,12 +1435,18 @@ Loop$$$
                     endm
 
 ;*******************************************************************************
-; Test for zero for any sized variable
+; Test for zero for any sized variable (current version leaves CCR[N] invalid)
 
-zero?.s             macro     Variable
+_tst_.s             macro     Variable
                     mset      #
                     mreq      1
                     @@_nosize_ ~1~
+          #if ::~1,~ = 1
+            #ifz ]~1,~
+                    tst       ~1~
+                    mexit
+            #endif
+          #endif
                     mdo
           #if :mloop = 1
                     lda       ~1,~+{:mloop-1}~,1~
@@ -1445,6 +1454,33 @@ zero?.s             macro     Variable
                     ora       ~1,~+{:mloop-1}~,1~
           #endif
                     mloop     ::~1,~
+                    endm
+
+;*******************************************************************************
+; TST for any sized variable (current version leaves CCR[N] invalid)
+
+tst.s               macro     Operand
+                    mset      #
+                    mreq      1
+                    @@_nosize_ ~1~
+          #if ::~1,~ = 1
+            #ifz ]~1,~
+                    tst       ~1~
+                    mexit
+            #endif
+          #endif
+                    #push
+                    #spauto   :sp
+                    psha
+                    mdo
+          #if :mloop = 1
+                    lda       ~1,~+{:mloop-1}~,1~
+          #else
+                    ora       ~1,~+{:mloop-1}~,1~
+          #endif
+                    mloop     ::~1,~
+                    pula
+                    #pull
                     endm
 
 ;*******************************************************************************
@@ -2891,7 +2927,7 @@ MAX_OS_CALLS        def       64                  ;default room for OS calls (68
                     #Message  Firmware v{VERSION(2)}
           #endif
                     #Message  MCU Operating Voltage (VDD): {VDD(3)}V
-
+;-------------------------------------------------------------------------------
 ?                   macro
                     #Message  ~1~: {~1~} Hz ({~1~/RDIV} Hz IRCLK, RDIV={RDIV})
                     endm
@@ -2907,18 +2943,20 @@ MAX_OS_CALLS        def       64                  ;default room for OS calls (68
           #else
                     #Message  {KHZ(3)} MHz ({BUS_KHZ(3)} MHz bus, BDIV={BDIV}) Cycle: {10000000/BUS_KHZ(1)} nsec
           #endif
-
+;-------------------------------------------------------------------------------
 ?                   macro
                     mswap     1,:loop
           #ifdef ~1~&~1~_END
                     #Message  ~1~~'..........:'.1.{10-:1}~ {~1~(h)}-{~1~_END(h)} ({~1~_END-~1~+1} bytes)
+          #else ifdef ~1~
+                    #Message  ~1~~'..........:'.1.{10-:1}~ {~1~(h)}-{~1~&$FF0000+:PAGE_END(h)} ({~1~&$FF0000+:PAGE_END-~1~+1} bytes)
           #endif
                     mtop      :n
                     endm
 
-                    @?        RAM,XRAM,EEPROM,ROM,XROM
+                    @?        RAM,XRAM,EEPROM,ROM,XROM,PPAGE0,PPAGE2,PPAGE4,PPAGE5,PPAGE6,PPAGE7
                     #Message  DataFlash: {FLASH_DATA_SIZE} bytes
-
+;-------------------------------------------------------------------------------
           #ifnz REQUIRED_STACK
             #ifdef MAXTASKS
                     #temp     REQUIRED_STACK*MAXTASKS
